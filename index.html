@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<meta name="robots" content="noindex, nofollow">
+<title>Конверты — семейный бюджет</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
+
+<header class="top glass">
+  <div class="brand"><span class="logo" aria-hidden="true">✉</span><span class="brand-t">Конверты</span></div>
+  <div class="month" role="group" aria-label="Месяц">
+    <button class="icon-btn" id="mPrev" aria-label="Предыдущий месяц">‹</button>
+    <span class="month-t" id="mLabel"></span>
+    <button class="icon-btn" id="mNext" aria-label="Следующий месяц">›</button>
+  </div>
+  <nav class="seg" id="views" role="tablist" aria-label="Разделы">
+    <button role="tab" data-view="env">Конверты</button>
+    <button role="tab" data-view="ana">Анализ</button>
+    <button role="tab" data-view="ops">Операции</button>
+  </nav>
+  <div class="top-r">
+    <button class="sync" id="syncBtn" aria-label="Сохранение и настройки"><i class="dot"></i><span id="syncT">…</span></button>
+    <button class="btn primary" id="addBtn"><span aria-hidden="true">＋</span> Трата</button>
+  </div>
+</header>
+
+<main>
+  <!-- ===== КОНВЕРТЫ ===== -->
+  <section class="view" id="v-env">
+    <div class="hero glass">
+      <div class="hero-head">
+        <div>
+          <h1 id="heroTitle"></h1>
+          <p class="sub" id="heroSub"></p>
+        </div>
+        <div class="month-prog" aria-hidden="true"><div class="mp-bar"><i id="mpFill"></i></div><span id="mpText"></span></div>
+      </div>
+      <div class="pft" id="pft"></div>
+      <div class="hero-foot" id="heroFoot"></div>
+    </div>
+
+    <div class="tray glass" id="tray">
+      <div class="tray-h"><b>Неразобранное</b><span class="sub" id="trayHint">Перетащи трату в конверт или нажми на неё</span></div>
+      <div class="tray-chips" id="trayChips"></div>
+    </div>
+
+    <div class="env-grid" id="envGrid"></div>
+  </section>
+
+  <!-- ===== АНАЛИЗ ===== -->
+  <section class="view" id="v-ana">
+    <div class="filters glass" id="filters"></div>
+    <div class="grid2">
+      <div class="card glass">
+        <div class="card-h"><h2>План · факт · тренд</h2><span class="pill" id="bulBadge"></span></div>
+        <div class="legend"><span><i class="lg-fact"></i>факт</span><span><i class="lg-trend"></i>тренд к концу месяца</span><span><i class="lg-plan"></i>план</span></div>
+        <div id="bullets"></div>
+      </div>
+      <div class="card glass">
+        <div class="card-h"><h2 id="burnTitle">Как тратим по дням</h2><span class="pill" id="burnBadge"></span></div>
+        <div class="legend"><span><i class="lg-fact"></i>накоплено трат</span><span><i class="lg-plan dash"></i>план равномерно</span><span><i class="lg-trend dot"></i>тренд</span></div>
+        <div class="chart-box tall"><canvas id="burnChart" role="img" aria-label="Накопленные траты по дням месяца против плана"></canvas></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card glass">
+        <div class="card-h"><h2>По месяцам</h2><span class="pill" id="monBadge"></span></div>
+        <div class="legend"><span><i class="lg-fact"></i>траты в конвертах</span><span><i class="lg-plan dash"></i>нынешний план</span></div>
+        <div class="chart-box"><canvas id="monChart" role="img" aria-label="Траты по месяцам против плана"></canvas></div>
+        <p class="note" id="monNote"></p>
+      </div>
+      <div class="card glass">
+        <div class="card-h"><h2>Подкатегории</h2><span class="pill" id="subBadge"></span></div>
+        <div id="subBars"></div>
+      </div>
+    </div>
+    <div class="card glass">
+      <div class="card-h"><h2>Где тратим</h2><span class="pill" id="placeBadge"></span></div>
+      <div class="tbl-wrap"><table class="tbl" id="places"></table></div>
+    </div>
+  </section>
+
+  <!-- ===== ОПЕРАЦИИ ===== -->
+  <section class="view" id="v-ops">
+    <div class="filters glass" id="filters2"></div>
+    <input class="search glass" id="q" type="search" placeholder="Поиск: место, подкатегория, пометка…" aria-label="Поиск по операциям">
+    <div class="card glass flush"><div id="opsList"></div></div>
+    <p class="note center" id="opsFoot"></p>
+  </section>
+</main>
+
+<!-- лист: куда положить / новая трата / настройки -->
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet glass" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetT" hidden>
+  <div class="sheet-h"><h3 id="sheetT"></h3><button class="icon-btn" id="sheetX" aria-label="Закрыть">✕</button></div>
+  <div id="sheetB"></div>
+</div>
+<button class="btn primary fab" id="fab" aria-label="Добавить трату"><span aria-hidden="true">＋</span> Трата</button>
+<div class="toast glass" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="ghost" id="ghost" aria-hidden="true"></div>
+
+<script src="vendor/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
