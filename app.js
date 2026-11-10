@@ -29,6 +29,13 @@ let D = null, BASE = [], REMOTE = [], ENVS = [], EXTRA = [], SUB = {}, ENVBY = {
 let PENDING = store.get('pending', []);
 let TOKEN = store.get('token', '');
 let WHO = store.get('who', 'я');
+let fromLink = false;
+(function readLink() {  // ссылка вида …/#t=<токен>&who=жена настраивает устройство одним нажатием
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('t')) { TOKEN = h.get('t'); store.set('token', TOKEN); fromLink = true; }
+  if (h.get('who') === 'жена' || h.get('who') === 'я') { WHO = h.get('who'); store.set('who', WHO); }
+  if (h.get('t') || h.get('who')) history.replaceState(null, '', location.pathname + location.search);
+})();
 const S = { view: store.get('view', 'env'), month: null, f: { env: '', who: '', fr: '', when: '', src: '', nat: '' }, q: '', sub: '' };
 let syncState = 'idle', syncMsg = '', flushTimer = null;
 
@@ -60,6 +67,7 @@ async function load() {
   setSync(PENDING.length ? (TOKEN ? 'pending' : 'local') : 'ok');
   if (PENDING.length && TOKEN) scheduleFlush();
   render();
+  if (fromLink) toast('Устройство настроено: траты будут сохраняться' + (WHO === 'жена' ? ' и подписываться «Жена»' : ''));
 }
 
 // ---------- данные с правками ----------
@@ -184,6 +192,7 @@ function renderEnv() {
   const goal = (D.goals || {}).save_per_month || 0;
   $('heroFoot').innerHTML = [
     'Из накоплений: <b class="num">' + money(st.outside) + '</b>',
+    (() => { const w = sum(allTx().filter(t => t.month === m && t.env === 'wifeside').map(t => t.amount)); return w ? 'Траты жены: <b class="num">' + money(w) + '</b>' : ''; })(),
     'Отложится за месяц по тренду: <b class="num">' + money(save) + '</b>' + (goal ? ' из цели ' + money(goal) : ''),
     st.pre ? '' : 'Банк к концу месяца ≈ <b class="num">' + money(st.bankStart + st.income - trend - st.outside) + '</b>',
   ].filter(Boolean).map(x => '<span>' + x + '</span>').join('');
@@ -216,6 +225,14 @@ function renderEnv() {
     '<div class="env-h"><span class="env-l">' + esc(sv.letter) + '</span><span class="env-n">' + esc(sv.name) + '</span><span class="st ok"><i aria-hidden="true">○</i>без лимита</span></div>' +
     '<div class="env-left"><b class="num">' + money(st.outside) + '<small>за ' + MON[+m.slice(5) - 1] + '</small></b><span class="sub">' + esc(sv.hint) + '</span></div>' +
     (svs.length ? '<ul class="env-subs">' + svs.map(([s, v]) => '<li><span>' + esc((SUB[s] || {}).name || s) + '</span><span class="num">' + money(v) + '</span></li>').join('') + '</ul>' : '') + '</div></button>';
+  const wifeTx = allTx().filter(t => t.month === m && t.env === 'wifeside');
+  if (wifeTx.length) {
+    const ws = {}; wifeTx.forEach(t => { const k = (SUB[t.sub] || {}).name || 'Прочее'; ws[k] = (ws[k] || 0) + t.amount; });
+    html += '<button class="env glass saving" data-open="wifeside" aria-label="Траты жены"><div class="env-flap"></div><div class="env-in">' +
+      '<div class="env-h"><span class="env-l">Ж</span><span class="env-n">Траты жены</span><span class="st ok"><i aria-hidden="true">○</i>из её денег</span></div>' +
+      '<div class="env-left"><b class="num">' + money(sum(wifeTx.map(t => t.amount))) + '<small>за ' + MON[+m.slice(5) - 1] + ' · ' + wifeTx.length + ' опер.</small></b><span class="sub">не уменьшают конверты из твоей зарплаты</span></div>' +
+      '<ul class="env-subs">' + Object.entries(ws).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => '<li><span>' + esc(k) + '</span><span class="num">' + money(v) + '</span></li>').join('') + '</ul></div></button>';
+  }
   $('envGrid').innerHTML = html;
 }
 const chipHTML = t => '<div class="chip' + (t.added ? ' new' : '') + '" role="button" tabindex="0" data-drag="' + esc(t.id) + '" aria-label="' + esc(t.label + ', ' + nf2.format(t.amount) + ' ' + D.currency + ' — выбрать конверт') + '"><b class="num">' + nf2.format(t.amount) + '</b><span>' + esc(t.label) + '</span><em>' + t.date.slice(8) + '.' + t.date.slice(5, 7) + (t.note ? ' · ' + esc(t.note) : '') + '</em></div>';
@@ -466,11 +483,12 @@ function addSheet(preEnv) {
     '<div class="field"><label for="aLbl">Что купили</label><input id="aLbl" placeholder="Например: Евроопт, обед, футбол" maxlength="60" autocomplete="off"></div>' +
     '<div class="row2"><div class="field"><label for="aDate">Дата</label><input id="aDate" type="date" value="' + date + '"></div>' +
     '<div class="field"><label>Кто платил</label><div class="toggle" data-who><button data-v="я" aria-pressed="' + (who === 'я') + '">Я</button><button data-v="жена" aria-pressed="' + (who === 'жена') + '">Жена</button></div></div></div>' +
-    '<div class="field"><label>Вместе с семьёй?</label><div class="toggle" data-joint><button data-v="0" aria-pressed="true">Нет</button><button data-v="1" aria-pressed="false">Да, вместе</button></div></div>' +
+    '<p class="note" data-whonote style="margin:-6px 0 12px"></p><div class="field"><label>Вместе с семьёй?</label><div class="toggle" data-joint><button data-v="0" aria-pressed="true">Нет</button><button data-v="1" aria-pressed="false">Да, вместе</button></div></div>' +
     envPicker(env) + '<p class="note" style="margin:-4px 0 12px">Конверт можно не выбирать: трата попадёт в «Неразобранное», и её можно будет перетащить.</p>' +
     '<button class="btn primary block" data-add>Добавить</button>', root => {
     const tog = (sel, cb) => root.querySelectorAll(sel + ' button').forEach(b => b.onclick = () => { root.querySelectorAll(sel + ' button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); cb(b.dataset.v); });
-    tog('[data-who]', v => { who = v; }); tog('[data-joint]', v => { joint = v === '1'; });
+    const whoNote = () => { root.querySelector('[data-whonote]').textContent = who === 'жена' ? 'Траты жены из её денег (пособие) идут отдельно и не уменьшают конверты. Конверт выбери, чтобы было видно, на что: продукты, дети и т. д.' : ''; };
+    tog('[data-who]', v => { who = v; whoNote(); }); tog('[data-joint]', v => { joint = v === '1'; }); whoNote();
     const showSubs = id => { env = id; root.querySelectorAll('[data-pe]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pe === id))); sub = (ENVBY[id].subs || [])[0].id; subPicker(root, id, sub, s => { sub = s; root.querySelectorAll('[data-ps]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ps === s))); }); };
     root.querySelectorAll('[data-pe]').forEach(b => b.onclick = () => { showSubs(b.dataset.pe); root.querySelector('[data-subs]').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
     if (env) showSubs(env);
@@ -493,6 +511,7 @@ function settingsSheet() {
     '<div class="field"><label for="tok">Токен GitHub (хранится только на этом устройстве)</label><input id="tok" type="password" autocomplete="off" placeholder="github_pat_…" value="' + esc(TOKEN) + '"></div>' +
     '<div class="row2"><button class="btn block" data-check>Проверить и сохранить</button><button class="btn primary block" data-flush' + (pend ? '' : ' disabled') + '>Сохранить сейчас</button></div>' +
     '<p class="note" data-res></p>' +
+    (TOKEN ? '<div class="field" style="margin-top:10px"><label>Ссылка, чтобы настроить телефон жены одним нажатием</label><input readonly data-link value="' + esc(location.origin + location.pathname + '#t=' + encodeURIComponent(TOKEN) + '&who=жена') + '"></div><button class="btn block" data-copy>Скопировать ссылку</button><p class="note">В ссылке токен: отправь её только жене, в личные сообщения, и потом удали сообщение. Открыть её нужно в том же браузере, где она добавляет траты: тогда сохранятся и уже внесённые.</p>' : '') +
     '<div class="help" style="margin-top:12px"><b>Как получить токен</b><ol><li>github.com → Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → Generate new token.</li>' +
     '<li>Repository access: <b>Only select repositories</b> → <code>' + esc(D.repo) + '</code>.</li><li>Permissions → Repository → <b>Contents: Read and write</b>. Срок — например, год.</li><li>Скопируй токен сюда. Жене — отдельный токен для её телефона.</li></ol></div>' +
     '<button class="btn block" data-reload style="margin-top:8px">Обновить данные</button>', root => {
@@ -510,6 +529,8 @@ function settingsSheet() {
       } catch (e) { res.textContent = 'Нет связи с GitHub.'; }
     };
     root.querySelector('[data-flush]').onclick = () => { flush(); closeSheet(); };
+    const cp = root.querySelector('[data-copy]');
+    if (cp) cp.onclick = async () => { const inp = root.querySelector('[data-link]'); try { await navigator.clipboard.writeText(inp.value); cp.textContent = 'Скопировано ✓'; } catch (e) { inp.select(); cp.textContent = 'Выдели и скопируй вручную'; } };
     root.querySelector('[data-reload]').onclick = () => location.reload();
   });
 }
